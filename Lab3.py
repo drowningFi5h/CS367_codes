@@ -136,26 +136,55 @@ def climb_hill_h2(f , n_v , max_s) :
     return assign , max_s , False
 
 
-if __name__ == '__main__':
+# Local Beam Search
+# Keeps track of 'beam_width' states, explores their neighbors, and selects the best '
+def search_beam(formula , n_vars , beam_width , h_func , max_steps=5000) :
+    current_beam = [ start_random(n_vars) for _ in range(beam_width) ]
+
+    for steps in range(1 , max_steps + 1) :
+        for assign in current_beam :
+            if h_func(formula , assign) == 0 :
+                return assign , steps , True
+
+        next_cands = [ ]
+
+        # Generate N1 neighbors for all states in the beam
+        for assign in current_beam :
+            for flip_var in range(1 , n_vars + 1) :
+                neighbor = assign.copy()
+                neighbor[ flip_var ] = not assign[ flip_var ]
+
+                cost = h_func(formula , neighbor)
+                next_cands.append((cost , neighbor))
+
+        # Select top 'beam_width' candidates
+        next_cands.sort(key=lambda x : x[ 0 ])
+        current_beam = [ c[ 1 ] for c in next_cands[ :beam_width ] ]
+
+        if not current_beam :
+            return None , steps , False
+
+    return current_beam[ 0 ] , max_steps , False  # Max steps reached
+
+
+if __name__ == '__main__' :
     K = 3
     M = 5  # clauses
     N = 4  # variables
 
-    print("Hill-Climbing (H1 & H2)")
-    # Generate a small, likely solvable problem
-    test_formula = make_problem_instance(K, M, N)
+    print("Beam Search")
 
-    # Testing HC with H1 (Cost Minimization)
-    start_time_h1 = time.time()
-    _, steps_h1, solved_h1 = climb_hill(test_formula, N, H1_score, max_steps=50)
-    time_h1 = time.time() - start_time_h1
+    # Generate a small, likely solvable problem
+    test_formula = make_problem_instance(K , M , N)
+
+    BEAM_W = 3
+    start_time_bs = time.time()
+    _ , steps_bs , solved_bs = search_beam(test_formula , N , BEAM_W , H1_score , max_steps=20)
+    time_bs = time.time() - start_time_bs
 
     print(f"1. Formula: {test_formula}")
-    print(f"2. HC (H1 Score): Solved: {solved_h1}, Steps: {steps_h1}, Time: {time_h1:.4f}s")
+    print(f"2. Beam Search (B={BEAM_W}, H1): Solved: {solved_bs}, Steps: {steps_bs}, Time: {time_bs:.4f}s")
 
-    # Testing HC with H2 (Gain Maximization)
-    start_time_h2 = time.time()
-    _, steps_h2, solved_h2 = climb_hill_h2(test_formula, N, max_s=50)
-    time_h2 = time.time() - start_time_h2
-
-    print(f"3. HC (H2 Gain): Solved: {solved_h2}, Steps: {steps_h2}, Time: {time_h2:.4f}s")
+    BEAM_W_HC = 1
+    _ , steps_bs_hc , solved_bs_hc = search_beam(test_formula , N , BEAM_W_HC , H1_score , max_steps=20)
+    print(f"3. Beam Search (B={BEAM_W_HC}, H1): Solved: {solved_bs_hc}, Steps: {steps_bs_hc}")
