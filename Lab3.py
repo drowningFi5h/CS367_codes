@@ -84,26 +84,78 @@ def N1_rand_flip(assignment , n_vars) :
     return neighbor
 
 
-if __name__ == '__main__' :
+# Hill-Climbing Algorithms
+# Steepest-Ascent Hill-Climbing (always moves to the best N1 neighbor)
+def climb_hill(formula , n_vars , h_func , max_steps=5000) :
+    current_assign = start_random(n_vars)
+
+    for steps in range(1 , max_steps + 1) :
+        c_cost = h_func(formula , current_assign)
+        if c_cost == 0 :
+            return current_assign , steps , True  # Solved
+
+        best_n_assign = None
+        best_n_cost = c_cost
+
+        # Explore the N1 neighborhood (single flip)
+        for var_to_flip in range(1 , n_vars + 1) :
+            neighbor = current_assign.copy()
+            neighbor[ var_to_flip ] = not current_assign[ var_to_flip ]
+
+            n_cost = h_func(formula , neighbor)
+
+            if n_cost < best_n_cost :
+                best_n_cost = n_cost
+                best_n_assign = neighbor
+
+        if best_n_assign is None :
+            return current_assign , steps , False  # Stuck
+
+        current_assign = best_n_assign
+
+    return current_assign , max_steps , False  # Max steps reached
+
+
+# Special Hill-Climbing using H2 Gain maximization
+def climb_hill_h2(f , n_v , max_s) :
+    assign = start_random(n_v)
+    for s in range(1 , max_s + 1) :
+        if find_cost(f , assign) == 0 : return assign , s , True
+
+        best_gain , best_flip_var = -float('inf') , None
+
+        for var_to_flip in range(1 , n_v + 1) :
+            gain = H2_gain(f , assign , var_to_flip)
+            if gain > best_gain :
+                best_gain = gain
+                best_flip_var = var_to_flip
+
+        if best_gain <= 0 : return assign , s , False
+
+        assign[ best_flip_var ] = not assign[ best_flip_var ]
+    return assign , max_s , False
+
+
+if __name__ == '__main__':
     K = 3
     M = 5  # clauses
     N = 4  # variables
 
-    print("H2 Gain and N1 Neighborhood")
-    # Simple test formula: (x1 or x2 or x3) and (not x1 or x2 or not x3) and (not x2 or not x3 or x1)
-    test_formula = [[1, 2, 3], [-1, 2, -3], [-2, -3, 1]]
+    print("Hill-Climbing (H1 & H2)")
+    # Generate a small, likely solvable problem
+    test_formula = make_problem_instance(K, M, N)
 
-    # Initial assignment: {1: F, 2: T, 3: T} (Cost = 2)
-    test_assign = {1: False, 2: True, 3: True}
-    initial_cost = H1_score(test_formula, test_assign)
+    # Testing HC with H1 (Cost Minimization)
+    start_time_h1 = time.time()
+    _, steps_h1, solved_h1 = climb_hill(test_formula, N, H1_score, max_steps=50)
+    time_h1 = time.time() - start_time_h1
 
-    print(f"1. Test Formula: {test_formula}")
-    print(f"2. Initial Assignment: {test_assign} (Cost: {initial_cost})")
+    print(f"1. Formula: {test_formula}")
+    print(f"2. HC (H1 Score): Solved: {solved_h1}, Steps: {steps_h1}, Time: {time_h1:.4f}s")
 
-    var_to_test = 1
-    gain = H2_gain(test_formula, test_assign, var_to_test)
-    print(f"3. H2 Gain for flipping var {var_to_test} (x{var_to_test}): {gain}")
+    # Testing HC with H2 (Gain Maximization)
+    start_time_h2 = time.time()
+    _, steps_h2, solved_h2 = climb_hill_h2(test_formula, N, max_s=50)
+    time_h2 = time.time() - start_time_h2
 
-    neighbor = N1_rand_flip(test_assign, N)
-    print(f"4. N1 Neighbor generated: {neighbor}")
-
+    print(f"3. HC (H2 Gain): Solved: {solved_h2}, Steps: {steps_h2}, Time: {time_h2:.4f}s")
