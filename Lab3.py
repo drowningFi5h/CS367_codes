@@ -235,31 +235,85 @@ def descend_neighborhoods(formula , n_vars , neighborhood_funcs , h_func , max_s
     return current_assign , max_steps , False  # Max steps reached
 
 
+# Comparative Analysis Function
+def run_full_comparison(k, m, n, num_runs, max_steps):
+
+    # Make a random SAT problem
+    formula = make_problem_instance(k, m, n)
+    if not formula:
+        print("No formula generated.")
+        return
+
+    results = {
+        'HC (H1)': [],
+        'BS3 (H1)': [],
+        'BS4 (H1)': [],
+        'VND (H1)': [],
+        'HC (H2)': [],
+    }
+
+    print(f"\nTesting {num_runs} runs on {k}-SAT with {m} clauses and {n} vars")
+
+    start = time.time()
+    for i in range(num_runs):
+        if i % 10 == 0 and i > 0:
+            print(f"Run {i}")
+
+        # Hill Climbing (H1)
+        _, steps, solved = climb_hill(formula, n, H1_score, max_steps)
+        results['HC (H1)'].append((solved, steps))
+
+        # Beam Search width 3
+        _, steps, solved = search_beam(formula, n, 3, H1_score, max_steps)
+        results['BS3 (H1)'].append((solved, steps))
+
+        # Beam Search width 4
+        _, steps, solved = search_beam(formula, n, 4, H1_score, max_steps)
+        results['BS4 (H1)'].append((solved, steps))
+
+        # VND
+        _, steps, solved = descend_neighborhoods(formula, n, [N1_rand_flip, N2_two_flip, N3_tri_flip], H1_score, max_steps)
+        results['VND (H1)'].append((solved, steps))
+
+        # Hill Climbing (H2)
+        _, steps, solved = climb_hill_h2(formula, n, max_steps)
+        results['HC (H2)'].append((solved, steps))
+
+    print("\nDone! Time:", round(time.time() - start, 2), "s")
+    print("Results:")
+    for algo in results:
+        solved = sum(1 for ok, _ in results[algo] if ok)
+        avg_steps = np.mean([s for ok, s in results[algo] if ok]) if solved else max_steps
+        print(f"{algo}: solved {solved}/{num_runs}, avg steps: {avg_steps:.2f}")
+
+    return results
+
+
 if __name__ == '__main__' :
     K = 3
     M = 5  # clauses
     N = 4  # variables
 
-    print("Variable Neighborhood Descent")
+    K_CLAUSE_LENGTH = 3
+    MAX_STEPS = 5000
+    NUM_RUNS = 10
 
-    # Generate a random problem instance
-    test_assign = start_random(N)
-    test_formula = make_problem_instance(K , M , N)
+    # Under-Constrained (Easy)
+    M1_CLAUSES = 15
+    N1_VARS = 10
 
-    # Test N2
-    neighbor_n2 = N2_two_flip(test_assign , N)
-    print(f"1. Original Assignment: {test_assign}")
-    print(f"2. N2 Neighbor: {neighbor_n2}")
+    print("TEST SET 1: UNDER-CONSTRAINED (Ratio = 1.5)")
+    run_full_comparison(K_CLAUSE_LENGTH , M1_CLAUSES , N1_VARS , NUM_RUNS , MAX_STEPS)
 
-    # Test N3
-    neighbor_n3 = N3_tri_flip(test_assign , N)
-    print(f"3. N3 Neighbor: {neighbor_n3}")
+    # Near Criticality (Hardest)
+    M2_CLAUSES = 43
+    N2_VARS = 10
 
-    # Test VND
-    neighborhoods = [ N1_rand_flip , N2_two_flip , N3_tri_flip ]
-    start_time_vnd = time.time()
-    _ , steps_vnd , solved_vnd = descend_neighborhoods(test_formula , N , neighborhoods , H1_score , max_steps=50)
-    time_vnd = time.time() - start_time_vnd
+    print("TEST SET 2: NEAR CRITICALITY (Ratio = 4.3)")
+    run_full_comparison(K_CLAUSE_LENGTH , M2_CLAUSES , N2_VARS , NUM_RUNS , MAX_STEPS)
 
-    print(f"4. Formula: {test_formula}")
-    print(f"5. VND (N1, N2, N3): Solved: {solved_vnd}, Steps: {steps_vnd}, Time: {time_vnd:.4f}s")
+    # Over-Constrained (Easy)
+    M3_CLAUSES = 70
+    N3_VARS = 10
+    print("TEST SET 3: OVER-CONSTRAINED (Ratio = 7.0)")
+    run_full_comparison(K_CLAUSE_LENGTH , M3_CLAUSES , N3_VARS , NUM_RUNS , MAX_STEPS)
