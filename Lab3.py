@@ -167,24 +167,99 @@ def search_beam(formula , n_vars , beam_width , h_func , max_steps=5000) :
     return current_beam[ 0 ] , max_steps , False  # Max steps reached
 
 
+# Variable Neighborhood Search
+def N1_rand_flip(assignment , n_vars) :
+    neighbor = assignment.copy()
+    f_var = random.randint(1 , n_vars)
+    neighbor[ f_var ] = not assignment[ f_var ]
+    return neighbor
+
+
+def N2_two_flip(assignment , n_vars) :
+    neighbor = assignment.copy()
+    vars_to_flip = random.sample(range(1 , n_vars + 1) , min(2 , n_vars))
+
+    for var in vars_to_flip :
+        neighbor[ var ] = not assignment[ var ]
+    return neighbor
+
+
+def N3_tri_flip(assignment , n_vars) :
+    neighbor = assignment.copy()
+    vars_to_flip = random.sample(range(1 , n_vars + 1) , min(3 , n_vars))
+
+    for var in vars_to_flip :
+        neighbor[ var ] = not assignment[ var ]
+    return neighbor
+
+
+# Variable Neighborhood Descent
+def descend_neighborhoods(formula , n_vars , neighborhood_funcs , h_func , max_steps=5000) :
+    current_assign = start_random(n_vars)
+
+    for steps in range(1 , max_steps + 1) :
+        c_cost = h_func(formula , current_assign)
+        if c_cost == 0 :
+            return current_assign , steps , True
+
+        k_idx = 0  # Start with N1
+
+        while k_idx < len(neighborhood_funcs) :
+            N_k = neighborhood_funcs[ k_idx ]
+
+            best_n_k = None
+            best_c_k = c_cost
+
+            # Sample N_k neighborhood
+            num_samples = n_vars * (k_idx + 1)
+
+            for _ in range(num_samples) :
+                neighbor = N_k(current_assign , n_vars)
+                neighbor_cost = h_func(formula , neighbor)
+
+                if neighbor_cost < best_c_k :
+                    best_c_k = neighbor_cost
+                    best_n_k = neighbor
+
+            # VND Move Strategy
+            if best_c_k < c_cost :
+                current_assign = best_n_k
+                c_cost = best_c_k
+                k_idx = 0  # Reset to N1
+            else :
+                k_idx += 1  # Try the next neighborhood
+
+        if k_idx == len(neighborhood_funcs) :
+            return current_assign , steps , False
+
+    return current_assign , max_steps , False  # Max steps reached
+
+
 if __name__ == '__main__' :
     K = 3
     M = 5  # clauses
     N = 4  # variables
 
-    print("Beam Search")
+    print("Variable Neighborhood Descent")
 
-    # Generate a small, likely solvable problem
+    # Generate a random problem instance
+    test_assign = start_random(N)
     test_formula = make_problem_instance(K , M , N)
 
-    BEAM_W = 3
-    start_time_bs = time.time()
-    _ , steps_bs , solved_bs = search_beam(test_formula , N , BEAM_W , H1_score , max_steps=20)
-    time_bs = time.time() - start_time_bs
+    # Test N2
+    neighbor_n2 = N2_two_flip(test_assign , N)
+    print(f"1. Original Assignment: {test_assign}")
+    print(f"2. N2 Neighbor: {neighbor_n2}")
 
-    print(f"1. Formula: {test_formula}")
-    print(f"2. Beam Search (B={BEAM_W}, H1): Solved: {solved_bs}, Steps: {steps_bs}, Time: {time_bs:.4f}s")
+    # Test N3
+    neighbor_n3 = N3_tri_flip(test_assign , N)
+    print(f"3. N3 Neighbor: {neighbor_n3}")
 
-    BEAM_W_HC = 1
-    _ , steps_bs_hc , solved_bs_hc = search_beam(test_formula , N , BEAM_W_HC , H1_score , max_steps=20)
-    print(f"3. Beam Search (B={BEAM_W_HC}, H1): Solved: {solved_bs_hc}, Steps: {steps_bs_hc}")
+    # Test VND
+    neighborhoods = [ N1_rand_flip , N2_two_flip , N3_tri_flip ]
+    start_time_vnd = time.time()
+    _ , steps_vnd , solved_vnd = descend_neighborhoods(test_formula , N , neighborhoods , H1_score , max_steps=50)
+    time_vnd = time.time() - start_time_vnd
+
+    print(f"4. Formula: {test_formula}")
+    print(f"5. VND (N1, N2, N3): Solved: {solved_vnd}, Steps: {steps_vnd}, Time: {time_vnd:.4f}s")
