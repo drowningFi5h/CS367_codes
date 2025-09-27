@@ -60,25 +60,50 @@ def H1_score(formula , assignment) :
     return find_cost(formula , assignment)
 
 
+# GSAT-style Gain (Maximize)
+def H2_gain(formula , assignment , var_to_flip) :
+    orig_u = find_cost(formula , assignment)
+
+    temp_assign = assignment.copy()
+    temp_assign[ var_to_flip ] = not assignment[ var_to_flip ]
+
+    new_u = find_cost(formula , temp_assign)
+
+    # Gain = (Old Unsatisfied) - (New Unsatisfied)
+    gain = orig_u - new_u
+    return gain
+
+
+# Neighborhood Definitions
+
+# Flip a single random variable
+def N1_rand_flip(assignment , n_vars) :
+    neighbor = assignment.copy()
+    f_var = random.choice(list(assignment.keys()))
+    neighbor[ f_var ] = not assignment[ f_var ]
+    return neighbor
+
+
 if __name__ == '__main__' :
     K = 3
     M = 5  # clauses
     N = 4  # variables
-    print("--- Test 1: Problem Generation and H1 Cost ---")
 
-    # Problem instance
-    test_formula = make_problem_instance(K , M , N)
-    print(f"1. Generated 3-SAT Formula (M={M}, N={N}): {test_formula}")
+    print("H2 Gain and N1 Neighborhood")
+    # Simple test formula: (x1 or x2 or x3) and (not x1 or x2 or not x3) and (not x2 or not x3 or x1)
+    test_formula = [[1, 2, 3], [-1, 2, -3], [-2, -3, 1]]
 
-    # Random assignment
-    test_assign = start_random(N)
-    print(f"2. Random Assignment: {test_assign}")
+    # Initial assignment: {1: F, 2: T, 3: T} (Cost = 2)
+    test_assign = {1: False, 2: True, 3: True}
+    initial_cost = H1_score(test_formula, test_assign)
 
-    # Initial cost (H1 score)
-    initial_cost = H1_score(test_formula , test_assign)
-    print(f"3. Initial H1 Cost (Unsatisfied Clauses): {initial_cost} / {M}")
+    print(f"1. Test Formula: {test_formula}")
+    print(f"2. Initial Assignment: {test_assign} (Cost: {initial_cost})")
 
-    if initial_cost == 0 :
-        print("-> Assignment unexpectedly satisfied the formula!")
-    else :
-        print("-> Core functions (generation/cost) appear to be working.")
+    var_to_test = 1
+    gain = H2_gain(test_formula, test_assign, var_to_test)
+    print(f"3. H2 Gain for flipping var {var_to_test} (x{var_to_test}): {gain}")
+
+    neighbor = N1_rand_flip(test_assign, N)
+    print(f"4. N1 Neighbor generated: {neighbor}")
+
